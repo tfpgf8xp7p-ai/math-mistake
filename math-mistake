@@ -1,187 +1,510 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>小学数学智能错题集生成器</title>
-    <style>
-        :root { --primary: #FF6A00; --bg: #f5f7fa; --text: #333; --border: #e1e4e8; }
-        body { font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
-        .container { max-width: 1200px; margin: 0 auto; display: flex; gap: 20px; }
-        
-        /* 左侧操作区 */
-        .sidebar { flex: 1; background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-        .header { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid var(--primary); padding-bottom: 10px; }
-        .header h2 { margin: 0; color: var(--primary); }
-        
-        .upload-box { border: 2px dashed var(--border); padding: 30px; text-align: center; border-radius: 8px; cursor: pointer; transition: 0.3s; margin-bottom: 20px; }
-        .upload-box:hover { border-color: var(--primary); background: #fffaf5; }
-        
-        .form-group { margin-bottom: 15px; }
-        .form-group label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 14px; }
-        .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 4px; box-sizing: border-box; }
-        
-        .btn { background: var(--primary); color: #fff; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 16px; width: 100%; }
-        .btn:hover { opacity: 0.9; }
-        .btn-outline { background: transparent; border: 1px solid var(--primary); color: var(--primary); margin-top: 10px; }
-
-        /* 右侧预览区 */
-        .preview-area { flex: 1.5; background: #525659; padding: 20px; border-radius: 12px; overflow-y: auto; height: 90vh; }
-        .a4-page { background: #fff; width: 210mm; min-height: 297mm; padding: 20mm; margin: 0 auto; box-shadow: 0 0 15px rgba(0,0,0,0.3); box-sizing: border-box; position: relative; }
-        
-        /* A4 打印样式细节 */
-        .print-header { border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px; display: flex; justify-content: space-between; }
-        .mistake-item { margin-bottom: 30px; border: 1px solid #eee; padding: 15px; border-radius: 8px; page-break-inside: avoid; }
-        .tag { background: #eee; padding: 2px 8px; border-radius: 4px; font-size: 12px; color: #666; margin-right: 5px; }
-        .wrong-answer { color: red; text-decoration: line-through; margin-left: 10px; font-size: 14px; }
-        .section-title { font-weight: bold; background: #f0f0f0; padding: 5px 10px; margin: 10px 0; border-left: 4px solid var(--primary); }
-        
-        /* 打印适配 */
-        @media print {
-            body { background: #fff; padding: 0; }
-            .sidebar, .upload-box { display: none; }
-            .container { display: block; }
-            .preview-area { background: #fff; height: auto; padding: 0; overflow: visible; }
-            .a4-page { box-shadow: none; margin: 0; width: 100%; padding: 0; }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>赵老师数学错题集</title>
+  <!-- Vant & Vue 核心库 -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vant@4.8.0/lib/index.css">
+  <script src="https://unpkg.com/vue@3.4.0/dist/vue.global.js"></script>
+  <script src="https://unpkg.com/vue-router@4.2.5/dist/vue-router.global.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vant@4.8.0/lib/vant.min.js"></script>
+  <!-- OCR -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.0.5/dist/tesseract.min.js"></script>
+  <!-- PDF 导出 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <!-- IndexedDB 包装 -->
+  <script src="https://cdn.jsdelivr.net/npm/idb@8.0.0/build/umd.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body {
+      font-family: 'Comic Neue', 'Comic Neue', 'Comic Sans MS', 'Chalkboard SE', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #FDF8E7;
+    }
+    #app {
+      max-width: 600px;
+      margin: 0 auto;
+      background: #FFF7E8;
+      min-height: 100vh;
+      box-shadow: 0 0 20px rgba(0,0,0,0.05);
+      border-radius: 32px 32px 0 0;
+      overflow: hidden;
+    }
+    /* 布鲁伊风格主色变量 */
+    .btn-block-bluey {
+      background: #F4B942;
+      border: none;
+      border-radius: 60px;
+      padding: 12px;
+      font-weight: bold;
+      font-size: 16px;
+      color: #4A3728;
+      box-shadow: 0 4px 0 #D49B2A;
+      transition: 0.1s linear;
+      cursor: pointer;
+      width: 100%;
+      text-align: center;
+    }
+    .btn-block-bluey:active { transform: translateY(2px); box-shadow: 0 2px 0 #D49B2A; }
+    .btn-block-green {
+      background: #5A8F7C;
+      border: none;
+      border-radius: 60px;
+      padding: 12px;
+      font-weight: bold;
+      font-size: 16px;
+      color: white;
+      box-shadow: 0 4px 0 #3A5E4F;
+      cursor: pointer;
+      width: 100%;
+      text-align: center;
+    }
+    .btn-block-green:active { transform: translateY(2px); box-shadow: 0 2px 0 #3A5E4F; }
+    /* 卡片样式 */
+    .card {
+      background: white;
+      border-radius: 32px;
+      padding: 28px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      box-shadow: 0 8px 16px rgba(0,0,0,0.05);
+      margin-bottom: 20px;
+      border: 2px solid #FFD966;
+    }
+    .card:active { transform: scale(0.97); }
+    .mistakes-card { background: #FFE2B5; border-bottom: 8px solid #F4B942; }
+    .exercises-card { background: #C5E0D4; border-bottom: 8px solid #5A8F7C; }
+    .card-icon { font-size: 52px; margin-bottom: 12px; filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.1)); }
+    .card-title { font-size: 24px; font-weight: bold; color: #4A3728; margin-bottom: 8px; }
+    .card-desc { font-size: 14px; color: #6B4E2E; }
+    /* 用户信息栏 */
+    .user-greeting {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 20px;
+      background: #FFF0D0;
+      border-radius: 60px;
+      margin-bottom: 24px;
+      border: 1px solid #FFD699;
+      font-weight: bold;
+      color: #5D3A1A;
+    }
+    /* 角色按钮 */
+    .role-btn {
+      margin: 8px 0;
+      padding: 12px;
+      background: #FCE6C4;
+      border: 2px solid #FFCF9A;
+      border-radius: 60px;
+      font-size: 16px;
+      width: 100%;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-weight: bold;
+      color: #5D3A1A;
+    }
+    .role-btn.active { background: #F4B942; color: white; border-color: #F4B942; }
+    /* 表单 */
+    .form-group { margin-bottom: 24px; }
+    .form-group label { display: block; font-size: 15px; margin-bottom: 8px; font-weight: bold; color: #5D3A1A; }
+    .form-group input, .form-group select {
+      width: 100%;
+      padding: 14px 18px;
+      font-size: 16px;
+      border: 2px solid #FFD699;
+      border-radius: 60px;
+      background: #FFFCF5;
+      outline: none;
+    }
+    .topic-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 18px;
+      background: #FFF4E0;
+      margin: 8px 12px;
+      border-radius: 50px;
+      border: 1px solid #FFDEA5;
+      cursor: pointer;
+      font-weight: 500;
+      color: #4B2F14;
+    }
+    .topic-item:active { background: #FFE0B5; transform: scale(0.98); }
+    /* A4 打印样式 - 左右留白一致 */
+    .a4-container {
+      width: 210mm;
+      min-height: 297mm;
+      margin: 0 auto;
+      padding: 15mm;  /* 上下左右均为15mm，留白均匀 */
+      background: #FFF8E8;
+      position: relative;
+      box-sizing: border-box;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    .watermark {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) rotate(-45deg);
+      font-size: 22px;
+      color: rgba(244,185,66,0.2);
+      white-space: nowrap;
+      pointer-events: none;
+      z-index: 1;
+      font-weight: bold;
+    }
+    .grid-answer {
+      display: grid;
+      grid-template-columns: repeat(20, 1fr);
+      background-image: linear-gradient(to right, #FFD89A 1px, transparent 1px),
+                        linear-gradient(to bottom, #FFD89A 1px, transparent 1px);
+      background-size: 20px 20px;
+      border: 2px solid #FFC069;
+      margin: 8px 0;
+      height: 85px;
+      border-radius: 16px;
+    }
+    .bluey-tag { background: #FFE2B5; border-radius: 40px; padding: 6px 14px; display: inline-block; font-size: 13px; font-weight: bold; color: #A5672E; }
+    .geometry-canvas { background: #FFF1DE; border-radius: 28px; padding: 12px; margin: 12px 0; text-align: center; }
+    .van-nav-bar { background: #FFE8C5 !important; --van-nav-bar-icon-color: #F4B942; }
+    .van-nav-bar__title { color: #5D3A1A !important; font-weight: bold; }
+    .preview-img { max-width: 100%; border-radius: 24px; margin-top: 12px; }
+    .answer-toggle { margin: 8px 0; }
+    .bottom-btn { margin-top: 20px; margin-bottom: 30px; }
+  </style>
 </head>
 <body>
-
-<div class="container">
-    <!-- 左侧：录入与校验 -->
-    <div class="sidebar">
-        <div class="header">
-            <h2>📚 智能错题录入</h2>
-        </div>
-
-        <!-- 模拟拍照上传 -->
-        <div class="upload-box" onclick="simulateUpload()">
-            <div style="font-size: 40px;">📷</div>
-            <p>点击模拟拍照/上传作业图片</p>
-            <small style="color: #999;">支持自动识别印刷体题目与学生手写答案</small>
-        </div>
-
-        <!-- 识别结果校验区 (默认隐藏) -->
-        <div id="ocrResult" style="display:none;">
-            <div class="form-group">
-                <label>🔍 AI识别题目 (请核对)</label>
-                <textarea id="questionText" rows="3"></textarea>
-            </div>
-            <div class="form-group">
-                <label>✍️ 识别学生手写答案 (红色代表疑似错误)</label>
-                <input type="text" id="studentAnswer" style="color: red;">
-            </div>
-            
-            <div class="form-group">
-                <label>📂 知识点分类 (基于三下大纲)</label>
-                <select id="knowledgePoint">
-                    <option>除数是一位数的除法</option>
-                    <option>两位数乘两位数</option>
-                    <option>面积 (长方形/正方形)</option>
-                    <option>年、月、日</option>
-                    <option>小数的初步认识</option>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label>💡 关联母题与解析 (系统自带+自定义)</label>
-                <select id="parentQuestion">
-                    <option value="1">[系统] 进一法应用题标准模型</option>
-                    <option value="2">[系统] 面积计算易错点</option>
-                    <option value="custom">[自定义] 上传视频/文字...</option>
-                </select>
-                <textarea id="customAnalysis" rows="2" placeholder="输入自定义解析或视频链接" style="margin-top:5px; display:none;"></textarea>
-            </div>
-
-            <button class="btn" onclick="addToCollection()">✅ 确认并加入错题集</button>
-        </div>
-
-        <button class="btn btn-outline" onclick="window.print()">🖨️ 打印 A4 错题集</button>
-        <p style="font-size:12px; color:#666; margin-top:10px;">*提示：打印时请勾选“背景图形”选项以获得最佳效果</p>
-    </div>
-
-    <!-- 右侧：A4 预览 -->
-    <div class="preview-area">
-        <div class="a4-page" id="printPage">
-            <div class="print-header">
-                <h3>📝 小学数学个性化错题集</h3>
-                <span>姓名：__________ 日期：__________</span>
-            </div>
-            <div id="mistakeList">
-                <!-- 错题将动态插入这里 -->
-                <div style="text-align: center; color: #999; margin-top: 100px;">
-                    暂无错题，请在左侧拍照添加
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
+<div id="app"><router-view></router-view></div>
 <script>
-    // 模拟 AI 识别过程
-    function simulateUpload() {
-        const btn = document.querySelector('.upload-box');
-        btn.innerHTML = '<div style="font-size: 40px;">⏳</div><p>正在识别题目与手写答案...</p>';
-        
-        setTimeout(() => {
-            document.getElementById('ocrResult').style.display = 'block';
-            btn.style.display = 'none';
-            
-            // 模拟填入识别结果 (这里模拟一道三下常见的“进一法”应用题)
-            document.getElementById('questionText').value = "三年级有 145 名学生去春游，每辆大巴车限乘 40 人，至少需要租几辆大巴车？";
-            document.getElementById('studentAnswer').value = "145 ÷ 40 = 3(辆)......25(人)  答：需要 3 辆。";
-            
-            alert("AI 识别完成！请核对左侧识别结果。");
-        }, 1500);
-    }
+  const { createApp, ref, reactive, computed, onMounted } = Vue;
+  const { createRouter, createWebHashHistory } = VueRouter;
 
-    // 处理自定义解析显示
-    document.getElementById('parentQuestion').addEventListener('change', function() {
-        const customBox = document.getElementById('customAnalysis');
-        customBox.style.display = this.value === 'custom' ? 'block' : 'none';
+  // ============= 35个三年级下册考点 =============
+  const ALL_TOPICS = [
+    "位置与方向（辨认方位）", "除法竖式谜（填数字）", "归一问题（单一量求解）", "盈亏问题（分配差异）",
+    "坐船/租车问题（进一法）", "购物问题（去尾法）", "运算符号填充（等式成立）", "乘除巧算（去括号/搬家）",
+    "乘法竖式谜（逻辑推理）", "特殊乘法巧算（×11）", "归总问题（总量不变）", "特殊乘法巧算（头同尾合十）",
+    "面积单位换算", "特殊乘法巧算（尾同头合十）", "长方形/正方形周长计算", "长方形/正方形面积（割补法）",
+    "长方形/正方形面积计算", "年月日（基础认知）", "已知面积求长/宽", "已知面积求边长",
+    "周期增减问题", "铺地砖问题（面积匹配）", "等差数列（初步认识）", "组合图形面积（分割/补全）",
+    "平年/闰年判断", "计时法互换（24时/普通）", "星期周期问题", "搭配问题（乘法原理初步）",
+    "跨日期天数计算", "盈亏问题", "亏亏问题", "周期增减问题", "盈盈问题"
+  ];
+  const rand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+
+  // 考点生成器
+  const topicGenerators = {
+    "长方形/正方形面积计算": (diff) => {
+      let w, h;
+      if(diff === '基础') { w = rand(3,6); h = rand(2,5); }
+      else if(diff === '提高') { w = rand(5,10); h = rand(4,8); }
+      else { w = rand(8,15); h = rand(6,12); }
+      const area = w * h;
+      const canvasDraw = (ctx, size) => {
+        ctx.fillStyle = "#FFE2B5"; ctx.fillRect(0,0,size,size);
+        ctx.strokeStyle = "#F4B942"; ctx.lineWidth = 3;
+        ctx.strokeRect(5,5,size-10,size-10);
+        ctx.fillStyle = "#5A3E1B"; ctx.font = "bold 14px 'Comic Neue'";
+        ctx.fillText(`${w}cm`, size/2-12, size/2-8);
+        ctx.fillText(`${h}cm`, size-25, size/2+5);
+      };
+      return { question: `长${w}厘米，宽${h}厘米，面积是多少平方厘米？`, answer: `${area}平方厘米`, canvas: canvasDraw };
+    },
+    "长方形/正方形周长计算": (diff) => {
+      let w, h; const isSquare = Math.random()>0.5;
+      if(diff === '基础') { w = rand(3,6); h = isSquare ? w : rand(2,5); }
+      else if(diff === '提高') { w = rand(5,10); h = isSquare ? w : rand(4,8); }
+      else { w = rand(8,15); h = isSquare ? w : rand(6,12); }
+      const perimeter = 2*(w+h);
+      return { question: `${isSquare ? '正方形边长'+w : '长方形长'+w+'宽'+h}，周长是多少厘米？`, answer: `${perimeter}厘米` };
+    },
+    "除法竖式谜（填数字）": (diff) => {
+      let divisor = diff === '基础' ? rand(2,4) : diff === '提高' ? rand(3,6) : rand(4,9);
+      let quotient = diff === '基础' ? rand(2,5) : diff === '提高' ? rand(4,8) : rand(5,12);
+      let remainder = rand(0, divisor-1);
+      let dividend = divisor * quotient + remainder;
+      return { question: `（    ） ÷ ${divisor} = ${quotient} …… ${remainder}`, answer: `${dividend}` };
+    },
+    "归一问题（单一量求解）": (diff) => {
+      let items, total, askItems;
+      if(diff === '基础') { items = 3; total = 15; askItems = 5; }
+      else if(diff === '提高') { items = 5; total = 35; askItems = 8; }
+      else { items = 7; total = 84; askItems = 12; }
+      const unit = total / items; const result = unit * askItems;
+      return { question: `${items}个苹果共${total}元，买${askItems}个苹果需要多少钱？`, answer: `${result}元` };
+    },
+    "面积单位换算": (diff) => {
+      let value, from, to, result;
+      if(diff === '基础') { value = rand(100,900); from = "平方分米"; to = "平方厘米"; result = value * 100; }
+      else { value = rand(2,8); from = "平方米"; to = "平方分米"; result = value * 100; }
+      return { question: `${value} ${from} = (    ) ${to}`, answer: `${result}` };
+    },
+    defaultGen: (topic, diff) => {
+      let param = diff === '基础' ? 5 : diff === '提高' ? 12 : 28;
+      return { question: `【${topic}】${diff}难度：计算 ${param} × 3 + 7 = ?`, answer: `${param*3+7}` };
+    }
+  };
+  const getGenerator = (topic) => topicGenerators[topic] || topicGenerators.defaultGen;
+  const buildTopicsData = () => {
+    const data = {};
+    ALL_TOPICS.forEach(topic => { data[topic] = { difficulty: ['基础','提高','挑战'], generate: (diff) => getGenerator(topic)(diff) }; });
+    return data;
+  };
+  const TOPICS_DATA = buildTopicsData();
+
+  // ========== IndexedDB ==========
+  let dbPromise = null;
+  const initDB = async () => {
+    if(dbPromise) return dbPromise;
+    const { openDB } = window.idb;
+    dbPromise = openDB('ZhaoMathDB', 3, {
+      upgrade(db) {
+        if(!db.objectStoreNames.contains('mistakes')) {
+          const store = db.createObjectStore('mistakes', { keyPath: 'id', autoIncrement: true });
+          store.createIndex('userId', 'userId'); store.createIndex('status', 'status');
+        }
+        if(!db.objectStoreNames.contains('users')) db.createObjectStore('users', { keyPath: 'id' });
+      }
     });
+    return dbPromise;
+  };
+  const addUser = async (user) => { const db = await initDB(); return db.put('users', user); };
+  const addMistake = async (mistake) => { const db = await initDB(); return db.add('mistakes', { ...mistake, createdAt: Date.now(), status: 'pending' }); };
+  const getMistakesByStatus = async (status, userId = null) => {
+    const db = await initDB(); const all = await db.getAll('mistakes');
+    return all.filter(m => m.status === status && (userId ? m.userId === userId : true));
+  };
+  const updateMistake = async (id, updates) => { const db = await initDB(); const m = await db.get('mistakes', id); if(m) { Object.assign(m, updates); return db.put('mistakes', m); } };
+  const getMistakesByUser = async (userId) => { const db = await initDB(); const all = await db.getAll('mistakes'); return all.filter(m => m.userId === userId); };
 
-    // 添加到错题集并生成举一反三
-    function addToCollection() {
-        const question = document.getElementById('questionText').value;
-        const sAnswer = document.getElementById('studentAnswer').value;
-        const kp = document.getElementById('knowledgePoint').value;
-        const list = document.getElementById('mistakeList');
+  // 用户会话
+  const currentUser = ref(null);
+  const login = (user) => { currentUser.value = user; localStorage.setItem('zhaoUser', JSON.stringify(user)); };
+  const logout = () => { currentUser.value = null; localStorage.removeItem('zhaoUser'); };
+  const loadSession = () => { const stored = localStorage.getItem('zhaoUser'); if(stored) currentUser.value = JSON.parse(stored); };
 
-        // 清除“暂无错题”提示
-        if(list.innerText.includes('暂无错题')) list.innerHTML = '';
+  // 路由
+  const routes = [
+    { path: '/', redirect: '/login' },
+    { path: '/login', component: { template: '<LoginPage />' } },
+    { path: '/register', component: { template: '<RegisterPage />' } },
+    { path: '/index', component: { template: '<HomePage />' }, meta: { auth: true } },
+    { path: '/mistakes/capture', component: { template: '<CapturePage />' }, meta: { auth: true, roles: ['student','teacher'] } },
+    { path: '/mistakes/my', component: { template: '<MyMistakes />' }, meta: { auth: true, roles: ['student','parent'] } },
+    { path: '/mistakes/review', component: { template: '<ReviewPage />' }, meta: { auth: true, roles: ['teacher'] } },
+    { path: '/mistakes/stats', component: { template: '<StatsPage />' }, meta: { auth: true, roles: ['teacher'] } },
+    { path: '/exercises/topics', component: { template: '<TopicsList />' }, meta: { auth: true } },
+    { path: '/exercises/generate', component: { template: '<GeneratePage />' }, meta: { auth: true } },
+    { path: '/exercises/print', component: { template: '<PrintWorksheet />' }, meta: { auth: true } }
+  ];
+  const router = createRouter({ history: createWebHashHistory(), routes });
+  router.beforeEach((to, from, next) => {
+    if(to.meta?.auth && !currentUser.value) next('/login');
+    else if(to.meta?.roles && !to.meta.roles.includes(currentUser.value?.role)) next('/index');
+    else next();
+  });
 
-        // 生成简单的举一反三题目 (模拟AI生成)
-        const variantQ = question.replace("145", "230").replace("40", "50");
+  // ========== 页面组件（所有二级页面都有底部返回按钮） ==========
+  const LoginPage = {
+    setup() {
+      const username = ref(''); const password = ref('');
+      const doLogin = async () => {
+        if(!username.value) return vant.showToast('请输入用户名');
+        const db = await initDB(); const users = await db.getAll('users');
+        const user = users.find(u => u.username === username.value && u.password === password.value);
+        if(user) { login(user); router.push('/index'); vant.showToast('登录成功 🌟'); }
+        else vant.showToast('用户名或密码错误');
+      };
+      const router = VueRouter.useRouter();
+      return { username, password, doLogin, router };
+    },
+    template: `<div style="padding:48px 24px;"><div style="text-align:center; margin-bottom:32px;">🐾 <span style="font-size:48px;">📚✨</span><h1 style="color:#F4B942;">赵老师数学错题集</h1><p style="color:#A5672E;">布鲁伊主题 · 错题拍照 · 智能练习</p></div><div class="form-group"><label>🎒 用户名</label><input v-model="username" placeholder="学生/家长/老师" /></div><div class="form-group"><label>🔐 密码</label><input type="password" v-model="password" placeholder="初始密码 123" /></div><button class="btn-block-green" @click="doLogin">登录 ✨</button><button class="btn-block-bluey" style="margin-top:16px;" @click="router.push('/register')">🌟 注册新账号</button></div>`
+  };
+  const RegisterPage = {
+    setup() {
+      const username = ref(''); const password = ref('123'); const role = ref('student'); 
+      const gradeList = ['一年级上册','一年级下册','二年级上册','二年级下册','三年级上册','三年级下册','四年级上册','四年级下册','五年级上册','五年级下册','六年级上册','六年级下册'];
+      const selectedGrade = ref('三年级下册');
+      const doReg = async () => {
+        if(!username.value.trim()) return vant.showToast('请输入用户名');
+        const db = await initDB(); const exists = await db.get('users', username.value);
+        if(exists) return vant.showToast('用户名已存在');
+        const newUser = { id: username.value, username: username.value, password: password.value, role: role.value, grade: selectedGrade.value };
+        await addUser(newUser); login(newUser); router.push('/index'); vant.showToast('注册成功 🎉');
+      };
+      const router = VueRouter.useRouter();
+      const goHome = () => router.push('/index');
+      const goBack = () => router.back();
+      return { username, password, role, selectedGrade, gradeList, doReg, router, goHome, goBack };
+    },
+    template: `<van-nav-bar title="注册新账号" left-text="← 返回" @click-left="goBack" right-text="🏠 首页" @click-right="goHome"/><div style="padding:24px;"><div class="form-group"><label>🐨 用户名</label><input v-model="username" placeholder="请填写姓名/手机号" /></div><div class="form-group"><label>🔑 密码</label><input type="password" v-model="password" placeholder="密码" /></div><div class="form-group"><label>🎭 身份</label><div><button class="role-btn" :class="{ active: role === 'student' }" @click="role='student'">🐣 学生</button><button class="role-btn" :class="{ active: role === 'parent' }" @click="role='parent'">👪 家长</button><button class="role-btn" :class="{ active: role === 'teacher' }" @click="role='teacher'">🍎 老师</button></div></div><div class="form-group"><label>📖 年级</label><select v-model="selectedGrade"><option v-for="g in gradeList" :value="g">{{ g }}</option></select></div><button class="btn-block-green" @click="doReg">注册并登录 🎈</button><div class="bottom-btn"><button class="btn-block-bluey" @click="goBack">🔙 返回上一页</button></div></div>`
+  };
+  const HomePage = {
+    setup() {
+      const user = currentUser; const router = VueRouter.useRouter();
+      return { user, router };
+    },
+    template: `<div style="padding:20px;"><div class="user-greeting"><span>🧸 嗨！{{ user?.username }}  <span class="bluey-tag">{{ user?.role === 'student' ? '🐣 学生' : user?.role === 'parent' ? '👪 家长' : '🍎 老师' }}</span></span><button class="btn-block-bluey" style="width:auto; padding:6px 16px;" @click="logout">🚪 退出</button></div>
+      <div class="card mistakes-card" @click="router.push('/mistakes/capture')"><div class="card-icon">📸</div><div class="card-title">拍照录错题</div><div class="card-desc">咔嚓一下，AI识别，老师审核</div></div>
+      <div v-if="user?.role === 'student' || user?.role === 'parent'" class="card" style="background:#C5E0D4;" @click="router.push('/mistakes/my')"><div class="card-icon">📘</div><div class="card-title">我的错题本</div><div class="card-desc">温故知新，打印预览</div></div>
+      <div v-if="user?.role === 'teacher'" class="card" style="background:#FFE2B5;" @click="router.push('/mistakes/review')"><div class="card-icon">✅</div><div class="card-title">错题审核</div><div class="card-desc">修正答案，确认入库</div></div>
+      <div v-if="user?.role === 'teacher'" class="card" style="background:#C5E0D4;" @click="router.push('/mistakes/stats')"><div class="card-icon">📊</div><div class="card-title">学情雷达</div><div class="card-desc">每个小同学的薄弱点</div></div>
+      <div class="card exercises-card" @click="router.push('/exercises/topics')"><div class="card-icon">📚</div><div class="card-title">经典题型工坊</div><div class="card-desc">35个三年级考点 · 随机生成 + 打印</div></div>
+    </div>`
+  };
+  // 拍照（支持相机+相册）
+  const CapturePage = {
+    setup() {
+      const imagePreview = ref(null); const recognizedText = ref(''); const loading = ref(false);
+      const onFileChange = async (e) => {
+        const file = e.target.files[0]; if(!file) return;
+        imagePreview.value = URL.createObjectURL(file); loading.value = true;
+        try { const { data: { text } } = await Tesseract.recognize(file, 'eng+chi_sim'); recognizedText.value = text.match(/\d+\.?\d*/)?.[0] || text.slice(0,30); vant.showToast('识别完成'); } catch(e) { recognizedText.value = '识别失败'; }
+        finally { loading.value = false; }
+      };
+      const submit = async () => {
+        if(!recognizedText.value) return vant.showToast('请拍照并识别');
+        await addMistake({ userId: currentUser.value.id, studentAnswer: recognizedText.value, image: imagePreview.value, studentName: currentUser.value.username });
+        vant.showToast('已提交审核 🧸'); router.push('/index');
+      };
+      const triggerFile = () => { document.getElementById('cameraInput').click(); };
+      const router = VueRouter.useRouter();
+      const goHome = () => router.push('/index');
+      const goBack = () => router.back();
+      return { imagePreview, recognizedText, loading, onFileChange, submit, router, triggerFile, goHome, goBack };
+    },
+    template: `<div><van-nav-bar title="拍照录入错题" left-text="← 返回" @click-left="goBack" right-text="🏠 首页" @click-right="goHome"/><div style="padding:16px;"><input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none;" @change="onFileChange" /><button class="btn-block-green" @click="triggerFile">📷 拍照 / 从相册选择</button><div v-if="imagePreview"><img :src="imagePreview" class="preview-img"/></div><van-loading v-if="loading"/><div class="form-group"><label>✏️ 识别结果</label><input v-model="recognizedText" placeholder="可手动修改" /></div><button class="btn-block-green" @click="submit">提交审核 🐾</button><div class="bottom-btn"><button class="btn-block-bluey" @click="goBack">🔙 返回上一页</button></div></div></div>`
+  };
+  // 错题本（支持打印预览）
+  const MyMistakes = {
+    setup() {
+      const mistakes = ref([]); const loading = ref(true);
+      const load = async () => { const all = await getMistakesByUser(currentUser.value.id); mistakes.value = all.filter(m => m.status === 'approved'); loading.value = false; };
+      const printMistake = (mistake) => {
+        router.push({ path: '/exercises/print', query: { type: 'mistake', data: JSON.stringify(mistake) } });
+      };
+      onMounted(load); const router = VueRouter.useRouter();
+      const goHome = () => router.push('/index');
+      const goBack = () => router.back();
+      return { mistakes, loading, printMistake, router, goHome, goBack };
+    },
+    template: `<div><van-nav-bar title="我的错题本" left-text="← 返回" @click-left="goBack" right-text="🏠 首页" @click-right="goHome"/><div v-if="loading">🔍 加载中...</div><div v-for="m in mistakes" :key="m.id" style="background:#FFF4E0; margin:12px; border-radius:28px; padding:16px;"><div>🐣 答案：{{ m.studentAnswer }}</div><div v-if="m.image"><img :src="m.image" style="max-width:100%; border-radius:20px; margin:8px 0;" /></div><button class="btn-block-green" style="margin-top:12px; padding:8px;" @click="printMistake(m)">🖨️ 打印预览</button></div><div v-if="!mistakes.length" style="text-align:center; padding:40px;">✨ 还没有错题，去练习吧 ✨</div><div class="bottom-btn"><button class="btn-block-bluey" @click="goBack">🔙 返回上一页</button></div></div>`
+  };
+  const ReviewPage = {
+    setup() {
+      const pending = ref([]); const editAnswers = reactive({});
+      const load = async () => { pending.value = await getMistakesByStatus('pending'); pending.value.forEach(m => { editAnswers[m.id] = m.studentAnswer; }); };
+      const approve = async (id) => { await updateMistake(id, { status: 'approved', studentAnswer: editAnswers[id] }); load(); vant.showToast('已入库 ✓'); };
+      const reject = async (id) => { await updateMistake(id, { status: 'rejected' }); load(); };
+      onMounted(load); const router = VueRouter.useRouter();
+      const goHome = () => router.push('/index');
+      const goBack = () => router.back();
+      return { pending, editAnswers, approve, reject, router, goHome, goBack };
+    },
+    template: `<div><van-nav-bar title="错题审核" left-text="← 返回" @click-left="goBack" right-text="🏠 首页" @click-right="goHome"/><div v-for="m in pending" :key="m.id" style="background:#FFF5E6; margin:12px; border-radius:28px; padding:16px;"><div>👧 学生：{{ m.studentName }}</div><div>🤖 识别：{{ m.studentAnswer }}</div><div class="form-group"><label>✏️ 修正答案</label><input v-model="editAnswers[m.id]" placeholder="可修改" /></div><div v-if="m.image"><img :src="m.image" style="max-width:100%; border-radius:24px;"/></div><div style="display:flex; gap:12px; margin-top:12px;"><button class="btn-block-green" style="flex:1;" @click="approve(m.id)">✅ 确认入库</button><button class="btn-block-bluey" style="flex:1;" @click="reject(m.id)">❌ 驳回</button></div></div><div class="bottom-btn"><button class="btn-block-bluey" @click="goBack">🔙 返回上一页</button></div></div>`
+  };
+  const StatsPage = {
+    setup() { 
+      const stats = ref([]); 
+      const loadStats = async () => { 
+        const db = await initDB(); 
+        const all = await db.getAll('mistakes'); 
+        const approved = all.filter(m => m.status === 'approved'); 
+        const map = new Map(); 
+        approved.forEach(m => { 
+          if(!map.has(m.userId)) map.set(m.userId, { userId: m.userId, topics: {} }); 
+          const u = map.get(m.userId); 
+          u.topics[m.topic || '其他'] = (u.topics[m.topic || '其他'] || 0)+1; 
+        }); 
+        stats.value = Array.from(map.values()); 
+      }; 
+      onMounted(loadStats); 
+      const router = VueRouter.useRouter(); 
+      const goHome = () => router.push('/index');
+      const goBack = () => router.back();
+      return { stats, router, goHome, goBack }; 
+    },
+    template: `<div><van-nav-bar title="学情分析" left-text="← 返回" @click-left="goBack" right-text="🏠 首页" @click-right="goHome"/><div v-for="u in stats" style="background:#FFE8C5; margin:12px; border-radius:28px; padding:16px;"><div>🧸 学生：{{ u.userId }}</div><div>⭐ 高频错点：{{ Object.entries(u.topics).sort((a,b)=>b[1]-a[1]).slice(0,2).map(t=>t[0]).join(', ') || '暂无' }}</div></div><div class="bottom-btn"><button class="btn-block-bluey" @click="goBack">🔙 返回上一页</button></div></div>`
+  };
+  const TopicsList = {
+    setup() { 
+      const topics = ALL_TOPICS; 
+      const router = VueRouter.useRouter(); 
+      const goHome = () => router.push('/index');
+      const goBack = () => router.back();
+      return { topics, router, goHome, goBack }; 
+    },
+    template: `<div><van-nav-bar title="三年级·35个考点" left-text="← 返回" @click-left="goBack" right-text="🏠 首页" @click-right="goHome"/><div v-for="t in topics" :key="t" class="topic-item" @click="router.push({ path: '/exercises/generate', query: { topic: t } })">{{ t }} <span style="font-size:20px;">➡️</span></div><div class="bottom-btn"><button class="btn-block-bluey" @click="goBack">🔙 返回上一页</button></div></div>`
+  };
+  const GeneratePage = {
+    setup() {
+      const route = VueRouter.useRoute(); const router = VueRouter.useRouter();
+      const topic = ref(route.query.topic || ALL_TOPICS[0]); const difficulty = ref('基础'); const count = ref(4);
+      const questions = ref([]); const showAnswer = ref({});
+      const generate = () => {
+        const gen = TOPICS_DATA[topic.value]?.generate || ((d)=> ({ question: '示例', answer: '' }));
+        const qs = [];
+        for(let i=0;i<count.value;i++) {
+          const res = gen(difficulty.value);
+          qs.push({ id: Date.now()+i, question: res.question, answer: res.answer, canvasDraw: res.canvas, showAns: false });
+        }
+        questions.value = qs;
+        setTimeout(() => {
+          qs.forEach((q) => { if(q.canvasDraw) { const canvas = document.getElementById(`canvas-${q.id}`); if(canvas) { const ctx = canvas.getContext('2d'); const size = 130; canvas.width = size; canvas.height = size; ctx.clearRect(0,0,size,size); q.canvasDraw(ctx, size); } } });
+        }, 80);
+      };
+      const toggleAnswer = (idx) => { questions.value[idx].showAns = !questions.value[idx].showAns; };
+      const printSheet = () => { router.push({ path: '/exercises/print', query: { type: 'worksheet', questions: JSON.stringify(questions.value.map(q => ({ question: q.question, answer: q.answer }))) } }); };
+      onMounted(() => generate());
+      const goHome = () => router.push('/index');
+      const goBack = () => router.back();
+      return { topic, difficulty, count, questions, generate, printSheet, router, toggleAnswer, goHome, goBack };
+    },
+    template: `<div><van-nav-bar title="生成练习题" left-text="← 返回" @click-left="goBack" right-text="🏠 首页" @click-right="goHome"/><div style="padding:16px;"><div class="form-group"><label>🎯 考点</label><select v-model="topic"><option v-for="t in ALL_TOPICS" :value="t">{{ t }}</option></select></div><div class="form-group"><label>⚡ 难度</label><div style="display:flex; gap:12px;"><button class="role-btn" :class="{ active: difficulty === '基础' }" @click="difficulty='基础'">基础</button><button class="role-btn" :class="{ active: difficulty === '提高' }" @click="difficulty='提高'">提高</button><button class="role-btn" :class="{ active: difficulty === '挑战' }" @click="difficulty='挑战'">挑战</button></div></div><div class="form-group"><label>📄 题目数量</label><input type="number" v-model.number="count" min="1" max="8" /></div><button class="btn-block-green" @click="generate">✨ 生成题目 ✨</button><div v-for="(q, idx) in questions" :key="q.id" style="background:#FFFCF0; border-radius:36px; padding:16px; margin-bottom:20px;"><div>🐣 {{ idx+1 }}. {{ q.question }}</div><div v-if="q.canvasDraw" class="geometry-canvas"><canvas :id="'canvas-'+q.id" style="max-width:100%; border-radius:20px;"></canvas></div><div class="grid-answer"></div><button class="btn-block-bluey answer-toggle" style="padding:6px;" @click="toggleAnswer(idx)">{{ q.showAns ? '隐藏答案' : '显示答案' }}</button><div v-if="q.showAns" style="margin-top:8px; background:#E0F2E9; border-radius:20px; padding:8px;">🔎 参考答案：{{ q.answer }}</div></div><button v-if="questions.length" class="btn-block-green" style="margin-top:12px;" @click="printSheet">🖨️ 预览打印版（无答案）</button><div class="bottom-btn"><button class="btn-block-bluey" @click="goBack">🔙 返回上一页</button></div></div></div>`
+  };
+  const PrintWorksheet = {
+    components: { GridAnswer: { template: `<div class="grid-answer"></div>` } },
+    setup() {
+      const route = VueRouter.useRoute(); const router = VueRouter.useRouter();
+      let data = {};
+      try {
+        if(route.query.type === 'mistake') {
+          data = JSON.parse(route.query.data);
+        } else {
+          const qs = JSON.parse(route.query.questions || '[]');
+          data = { questions: qs };
+        }
+      } catch(e) {}
+      const isMistake = route.query.type === 'mistake';
+      const mistakeItem = isMistake ? data : null;
+      const questions = ref(isMistake ? [] : (data.questions || []));
+      const title = isMistake ? '错题打印' : (route.query.topic || '练习卷');
+      const exportPDF = async () => { const el = document.querySelector('.a4-container'); if(!el) return; const canvas = await html2canvas(el, { scale: 2 }); const imgData = canvas.toDataURL('image/png'); const { jsPDF } = window.jspdf; const pdf = new jsPDF({ unit: 'mm', format: 'a4' }); const imgProps = pdf.getImageProperties(imgData); const pdfWidth = pdf.internal.pageSize.getWidth(); const pdfHeight = (imgProps.height * pdfWidth)/imgProps.width; pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight); pdf.save(`${title}.pdf`); };
+      const goHome = () => router.push('/index');
+      const goBack = () => router.back();
+      return { isMistake, mistakeItem, questions, title, exportPDF, router, goHome, goBack };
+    },
+    template: `<div><van-nav-bar title="打印预览" left-text="← 返回" @click-left="goBack" right-text="🏠 首页" @click-right="goHome"/><div class="a4-container"><div class="watermark">🐾 赵老师数学错题集</div><h2 style="text-align:center; color:#5A8F7C;">{{ title }}</h2><div v-if="isMistake"><div>📸 错题原图：<img :src="mistakeItem.image" style="max-width:100%; border-radius:16px; margin:10px 0;" /></div><div>✏️ 学生答案：{{ mistakeItem.studentAnswer }}</div><div class="grid-answer" style="height:120px;"></div></div><div v-else><div v-for="(q, idx) in questions" :key="idx" class="question-item"><div><strong>{{ idx+1 }}.</strong> {{ q.question }}</div><GridAnswer /></div></div></div><div class="no-print" style="padding:20px;text-align:center;"><button class="btn-block-green" style="display:inline-block; width:auto; padding:10px 24px;" @click="exportPDF">🖨️ 导出PDF</button><button class="btn-block-bluey" style="display:inline-block; width:auto; margin-left:12px; padding:10px 24px;" @click="goHome">🏠 返回首页</button><div class="bottom-btn"><button class="btn-block-bluey" @click="goBack">🔙 返回上一页</button></div></div></div>`
+  };
 
-        const html = `
-            <div class="mistake-item">
-                <div><span class="tag">${kp}</span></div>
-                <div class="section-title">❌ 原题重现</div>
-                <p>${question}</p>
-                <p><strong>你的答案：</strong><span class="wrong-answer">${sAnswer}</span></p>
-                
-                <div class="section-title">🧠 举一反三 (变式练习)</div>
-                <p>1. ${variantQ}</p>
-                <div style="height: 60px; border-bottom: 1px dashed #ccc; margin-bottom: 10px;"></div>
-                
-                <div style="font-size: 12px; color: #666; border-top: 1px dotted #ccc; padding-top: 5px;">
-                    <strong>💡 老师点拨：</strong> 本题考查“进一法”。剩余的人也需要一辆车，所以商要加1。
-                </div>
-            </div>
-        `;
-        
-        list.insertAdjacentHTML('beforeend', html);
-        
-        // 重置表单
-        document.getElementById('ocrResult').style.display = 'none';
-        document.querySelector('.upload-box').style.display = 'block';
-        document.querySelector('.upload-box').innerHTML = '<div style="font-size: 40px;">📷</div><p>继续拍摄下一题</p>';
-    }
+  const app = createApp({ template: '<router-view />' });
+  app.use(router);
+  for(let k in vant) if(k !== 'install') app.component(k, vant[k]);
+  app.component('LoginPage', LoginPage); app.component('RegisterPage', RegisterPage);
+  app.component('HomePage', HomePage); app.component('CapturePage', CapturePage);
+  app.component('MyMistakes', MyMistakes); app.component('ReviewPage', ReviewPage);
+  app.component('StatsPage', StatsPage); app.component('TopicsList', TopicsList);
+  app.component('GeneratePage', GeneratePage); app.component('PrintWorksheet', PrintWorksheet);
+  app.mount('#app');
+  loadSession();
 </script>
-
 </body>
 </html>
-
-
