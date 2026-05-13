@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小学数学智能错题集生成器</title>
+    <style>
+        :root { --primary: #FF6A00; --bg: #f5f7fa; --text: #333; --border: #e1e4e8; }
+        body { font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; display: flex; gap: 20px; }
+        
+        /* 左侧操作区 */
+        .sidebar { flex: 1; background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .header { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid var(--primary); padding-bottom: 10px; }
+        .header h2 { margin: 0; color: var(--primary); }
+        
+        .upload-box { border: 2px dashed var(--border); padding: 30px; text-align: center; border-radius: 8px; cursor: pointer; transition: 0.3s; margin-bottom: 20px; }
+        .upload-box:hover { border-color: var(--primary); background: #fffaf5; }
+        
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 14px; }
+        .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 4px; box-sizing: border-box; }
+        
+        .btn { background: var(--primary); color: #fff; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 16px; width: 100%; }
+        .btn:hover { opacity: 0.9; }
+        .btn-outline { background: transparent; border: 1px solid var(--primary); color: var(--primary); margin-top: 10px; }
+
+        /* 右侧预览区 */
+        .preview-area { flex: 1.5; background: #525659; padding: 20px; border-radius: 12px; overflow-y: auto; height: 90vh; }
+        .a4-page { background: #fff; width: 210mm; min-height: 297mm; padding: 20mm; margin: 0 auto; box-shadow: 0 0 15px rgba(0,0,0,0.3); box-sizing: border-box; position: relative; }
+        
+        /* A4 打印样式细节 */
+        .print-header { border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px; display: flex; justify-content: space-between; }
+        .mistake-item { margin-bottom: 30px; border: 1px solid #eee; padding: 15px; border-radius: 8px; page-break-inside: avoid; }
+        .tag { background: #eee; padding: 2px 8px; border-radius: 4px; font-size: 12px; color: #666; margin-right: 5px; }
+        .wrong-answer { color: red; text-decoration: line-through; margin-left: 10px; font-size: 14px; }
+        .section-title { font-weight: bold; background: #f0f0f0; padding: 5px 10px; margin: 10px 0; border-left: 4px solid var(--primary); }
+        
+        /* 打印适配 */
+        @media print {
+            body { background: #fff; padding: 0; }
+            .sidebar, .upload-box { display: none; }
+            .container { display: block; }
+            .preview-area { background: #fff; height: auto; padding: 0; overflow: visible; }
+            .a4-page { box-shadow: none; margin: 0; width: 100%; padding: 0; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- 左侧：录入与校验 -->
+    <div class="sidebar">
+        <div class="header">
+            <h2>📚 智能错题录入</h2>
+        </div>
+
+        <!-- 模拟拍照上传 -->
+        <div class="upload-box" onclick="simulateUpload()">
+            <div style="font-size: 40px;">📷</div>
+            <p>点击模拟拍照/上传作业图片</p>
+            <small style="color: #999;">支持自动识别印刷体题目与学生手写答案</small>
+        </div>
+
+        <!-- 识别结果校验区 (默认隐藏) -->
+        <div id="ocrResult" style="display:none;">
+            <div class="form-group">
+                <label>🔍 AI识别题目 (请核对)</label>
+                <textarea id="questionText" rows="3"></textarea>
+            </div>
+            <div class="form-group">
+                <label>✍️ 识别学生手写答案 (红色代表疑似错误)</label>
+                <input type="text" id="studentAnswer" style="color: red;">
+            </div>
+            
+            <div class="form-group">
+                <label>📂 知识点分类 (基于三下大纲)</label>
+                <select id="knowledgePoint">
+                    <option>除数是一位数的除法</option>
+                    <option>两位数乘两位数</option>
+                    <option>面积 (长方形/正方形)</option>
+                    <option>年、月、日</option>
+                    <option>小数的初步认识</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>💡 关联母题与解析 (系统自带+自定义)</label>
+                <select id="parentQuestion">
+                    <option value="1">[系统] 进一法应用题标准模型</option>
+                    <option value="2">[系统] 面积计算易错点</option>
+                    <option value="custom">[自定义] 上传视频/文字...</option>
+                </select>
+                <textarea id="customAnalysis" rows="2" placeholder="输入自定义解析或视频链接" style="margin-top:5px; display:none;"></textarea>
+            </div>
+
+            <button class="btn" onclick="addToCollection()">✅ 确认并加入错题集</button>
+        </div>
+
+        <button class="btn btn-outline" onclick="window.print()">🖨️ 打印 A4 错题集</button>
+        <p style="font-size:12px; color:#666; margin-top:10px;">*提示：打印时请勾选“背景图形”选项以获得最佳效果</p>
+    </div>
+
+    <!-- 右侧：A4 预览 -->
+    <div class="preview-area">
+        <div class="a4-page" id="printPage">
+            <div class="print-header">
+                <h3>📝 小学数学个性化错题集</h3>
+                <span>姓名：__________ 日期：__________</span>
+            </div>
+            <div id="mistakeList">
+                <!-- 错题将动态插入这里 -->
+                <div style="text-align: center; color: #999; margin-top: 100px;">
+                    暂无错题，请在左侧拍照添加
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 模拟 AI 识别过程
+    function simulateUpload() {
+        const btn = document.querySelector('.upload-box');
+        btn.innerHTML = '<div style="font-size: 40px;">⏳</div><p>正在识别题目与手写答案...</p>';
+        
+        setTimeout(() => {
+            document.getElementById('ocrResult').style.display = 'block';
+            btn.style.display = 'none';
+            
+            // 模拟填入识别结果 (这里模拟一道三下常见的“进一法”应用题)
+            document.getElementById('questionText').value = "三年级有 145 名学生去春游，每辆大巴车限乘 40 人，至少需要租几辆大巴车？";
+            document.getElementById('studentAnswer').value = "145 ÷ 40 = 3(辆)......25(人)  答：需要 3 辆。";
+            
+            alert("AI 识别完成！请核对左侧识别结果。");
+        }, 1500);
+    }
+
+    // 处理自定义解析显示
+    document.getElementById('parentQuestion').addEventListener('change', function() {
+        const customBox = document.getElementById('customAnalysis');
+        customBox.style.display = this.value === 'custom' ? 'block' : 'none';
+    });
+
+    // 添加到错题集并生成举一反三
+    function addToCollection() {
+        const question = document.getElementById('questionText').value;
+        const sAnswer = document.getElementById('studentAnswer').value;
+        const kp = document.getElementById('knowledgePoint').value;
+        const list = document.getElementById('mistakeList');
+
+        // 清除“暂无错题”提示
+        if(list.innerText.includes('暂无错题')) list.innerHTML = '';
+
+        // 生成简单的举一反三题目 (模拟AI生成)
+        const variantQ = question.replace("145", "230").replace("40", "50");
+
+        const html = `
+            <div class="mistake-item">
+                <div><span class="tag">${kp}</span></div>
+                <div class="section-title">❌ 原题重现</div>
+                <p>${question}</p>
+                <p><strong>你的答案：</strong><span class="wrong-answer">${sAnswer}</span></p>
+                
+                <div class="section-title">🧠 举一反三 (变式练习)</div>
+                <p>1. ${variantQ}</p>
+                <div style="height: 60px; border-bottom: 1px dashed #ccc; margin-bottom: 10px;"></div>
+                
+                <div style="font-size: 12px; color: #666; border-top: 1px dotted #ccc; padding-top: 5px;">
+                    <strong>💡 老师点拨：</strong> 本题考查“进一法”。剩余的人也需要一辆车，所以商要加1。
+                </div>
+            </div>
+        `;
+        
+        list.insertAdjacentHTML('beforeend', html);
+        
+        // 重置表单
+        document.getElementById('ocrResult').style.display = 'none';
+        document.querySelector('.upload-box').style.display = 'block';
+        document.querySelector('.upload-box').innerHTML = '<div style="font-size: 40px;">📷</div><p>继续拍摄下一题</p>';
+    }
+</script>
+
+</body>
+</html>
+
+
